@@ -1,8 +1,14 @@
 from aiogram import types
 from loader import dp
 
-# Echo bot
-@dp.message_handler(state=None)
-async def bot_echo(message: types.Message):
-    await message.answer(text=message.text)
+from aiogram import types
+from .api import obhavo
 
+@dp.message_handler(content_types='text')
+async def first_handler(message:types.Message):
+    shahar = message.text
+    data = obhavo(shahar)
+    if data=='Error':
+        await message.answer("Malumot topilmadi!")
+    else:
+        await message.answer(data)
