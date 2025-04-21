@@ -1,59 +1,43 @@
-import sqlite3
-
 from aiogram import types
 from aiogram.dispatcher.filters.builtin import CommandStart
-from data.config import ADMINS
 from loader import dp, db, bot
+from data.config import ADMINS
+import sqlite3
 
 
 @dp.message_handler(CommandStart())
 async def bot_start(message: types.Message):
     name = message.from_user.full_name
-    if not name.startswith('<') and not name.endswith('>'):
-        # Foydalanuvchini bazaga qo'shamiz
-        try:
-            db.add_user(id=message.from_user.id, name=name)
-            await message.answer(f"Xush kelibsiz! {name}")
-            # Adminga xabar beramiz
-            count = db.count_users()[0]
-            msg = f"{message.from_user.full_name} bazaga qo'shildi.\nBazada {count} ta foydalanuvchi bor."
-            await bot.send_message(chat_id=ADMINS[0], text=msg)
+    user_id = message.from_user.id
+    username = message.from_user.username
 
-        except sqlite3.IntegrityError as err:
-            await bot.send_message(chat_id=ADMINS[0], text=f"{name} bazaga oldin qo'shilgan")
-            await message.answer(f"Xush kelibsiz! {name}")
+    try:
+        db.add_user(user_id==user_id, name=name)
+        count = db.count_users()[0]
 
-        except Exception as err:
-            await bot.send_message(chat_id=ADMINS[0], text=f"{name} bazaga oldin qo'shilgan")
-            await message.answer(f"Xush kelibsiz! {name}")
+        welcome_text = f"Xush kelibsiz, {name}!\n"
+        welcome_text += "🤖 Bu bot sizga ob-havo ma'lumotlarini taqdim etadi.\n\n"
+        welcome_text += "🌆 Shahringiz nomini kiriting:"
 
-    else:
-        if message.from_user.username:
-            try:
-                db.add_user(id=message.from_user.id, name=name)
-                msg = f"@{message.from_user.username} bazaga qo'shildi.\nBazada {count} ta foydalanuvchi bor."
-                await bot.send_message(chat_id=ADMINS[0], text=msg)
-                await message.answer(f"Xush kelibsiz! @{message.from_user.username} Assalomu alaykum! Bot sizga shahringizdagi ob-havo haqida ma'lumot beradi!")
+        await message.answer(welcome_text)
+        users = db.select_all_users()
+        print("Current users in database:", users)
 
-            except sqlite3.IntegrityError as err:
-                await bot.send_message(chat_id=ADMINS[0], text=f"@{message.from_user.username} bazaga oldin qo'shilgan")
-                await message.answer(f"Xush kelibsiz! @{message.from_user.username} Assalomu alaykum! Bot sizga shahringizdagi ob-havo haqida ma'lumot beradi!")
-            
-            except Exception as err:
-                await bot.send_message(chat_id=ADMINS[0], text=f"@{message.from_user.username} bazaga oldin qo'shilgan")
-                await message.answer(f"Xush kelibsiz! @{message.from_user.username} Assalomu alaykum! Bot sizga shahringizdagi ob-havo haqida ma'lumot beradi!")
+        # Adminlarga xabar
+        admin_msg = f"{name} (ID: {user_id}) bazaga qo'shildi.\n"
+        admin_msg += f"Bazada {count} ta foydalanuvchi bor."
 
-        else:
-            try:
-                db.add_user(id=message.from_user.id, name=name)
-                msg = f"{message.from_user.id} bazaga qo'shildi.\nBazada {count} ta foydalanuvchi bor."
-                await bot.send_message(chat_id=ADMINS[0], text=msg)
-                await message.answer(f"Xush kelibsiz!")
+        await bot.send_message(chat_id=ADMINS[0], text=admin_msg)
 
-            except sqlite3.IntegrityError as err:
-                await bot.send_message(chat_id=ADMINS[0], text=f"{message.from_user.id} bazaga oldin qo'shilgan")
-                await message.answer(f"Xush kelibsiz!")
-            
-            except Exception as err:
-                await bot.send_message(chat_id=ADMINS[0], text=f"{message.from_user.id} bazaga oldin qo'shilgan")
-                await message.answer(f"Xush kelibsiz!")
+    except sqlite3.IntegrityError:
+        welcome_text = "🤖 Bu bot sizga ob-havo ma'lumotlarini taqdim etadi.\n\n"
+        welcome_text += "🌆 Shahringiz nomini kiriting:"
+        # Foydalanuvchi oldin qo‘shilgan
+        await message.answer(f"Xush kelibsiz, {name}!\n💾Siz bazaga allaqachon qo'shilgansiz. \n\n{welcome_text}")
+        await bot.send_message(chat_id=ADMINS[0], text=f"{name} (ID: {user_id}) bazada mavjud.")
+
+    except Exception as err:
+        # Boshqa xatoliklarni ushlab log qilish
+        await message.answer("Kechirasiz, tizimda nosozlik yuz berdi.")
+        await bot.send_message(chat_id=ADMINS[0], text=f"❌ Xatolik: {err}")
+
